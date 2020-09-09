@@ -1,20 +1,22 @@
 const express = require('express');
 const Posts = require('../db.js');
-const { route } = require('../../server.js');
 
 const router = express.Router();
 
 router.post('/', (req, res) => {
     const post = req.body;
     Posts.insert(post)
-        .then(res => {
-            res.status(201).json(post);
+        .then(response => {
+            Posts.findById(response.id)
+                .then(resp => {
+                    res.status(200).json(resp)
+                })
         })
         .catch(err => {
             if(post.title === undefined || post.contents === undefined){
                 res.status(400).json({errorMessage: "Please provide title and contents for the post."})
             } else {
-                res.status.json({error: "There was an error while saving the post to the database."})
+                res.status(500).json({error: "There was an error while saving the post to the database."})
             }
         })
 });
@@ -25,8 +27,8 @@ router.post('/:id/comments', (req, res) => {
     comment.post_id = id;
 
     Posts.insertComment(comment)
-        .then(res => {
-            res.status(201).json(comment)
+        .then(response => {
+            res.status(200).json(comment)
         })
         .catch(err => {
             if(comment.text === undefined){
@@ -53,11 +55,14 @@ router.get('/:id', (req, res) => {
 
     Posts.findById(id)
         .then(response => {
-            res.status(200).json(response);
+            if(response.length === 0){
+                res.status(404).json({message: "The post with the specified ID does not exist."})
+            } else {
+                res.status(200).json(response);
+            }
         })
         .catch(err => {
-            res(404).json({message: "The post with the specified ID does not exist."})
-            res(500).json({error: "The post information could not be retrieved."})
+            res.status(500).json({error: "The post information could not be retrieved."})
         })
 })
 
@@ -66,10 +71,13 @@ router.get('/:id/comments', (req, res) => {
 
     Posts.findCommentById(id)
         .then(response => {
-            res.status(200).json(res) 
+            if(response.length === 0){
+                res.status(404).json({message: "The post with the specified ID does not exist."})
+            } else {
+                res.status(200).json(response);
+            }
         })
         .catch(err => {
-            res.status(404).json({message: "The post with the specified ID does not exist"});
             res.status(500).json({error: "The comments information could not be retrieved."})
         })
 })
@@ -77,13 +85,19 @@ router.get('/:id/comments', (req, res) => {
 router.delete('/:id', (req, res) => {
     const { id } = req.params;
 
-    Posts.remove(id)
+    Posts.findById(id)
         .then(response => {
-            res.status(200).json(response)
+            res.status(200).json(response);
+            Posts.remove(response.id)
+                .then(response => {
+
+                })
+                .catch(err => {
+                    res.status(500).json({error: "The post could not be removed."})
+                })
         })
         .catch(err => {
-            res.status(404).json({message: "The post with the specified Id does not exist."})
-            res.status(500).json({error: "The post could not be removed."})
+            res.status(404).json({message: "The post with the specified ID does not exist."})
         })
 })
 
@@ -91,17 +105,25 @@ router.put('/:id', (req, res) => {
     const { id } = req.params;
     const post = req.body;
 
-    Posts.remove(id, post)
+    Posts.update(id, post)
         .then(response => {
-            res.status(200).json(response);
+                Posts.findById(id)
+                    .then(response => {
+                        res.status(200).json(response);
+                    })
+                    .catch(err => {
+                        res.status(404).json({message: "The post with the specified ID does not exist."})
+                    })
+
         })
         .catch(err => {
             if(post.title === undefined || post.contents === undefined){
-                res.status(400).json({errorMessage: "Please provide title and contents for the post"})
+                res.status(400).json({errorMessage: " Please provide title and contents for the post."})
             } else {
                 res.status(500).json({error: "The post information could not be modified."})
-                res.status(404).json({message: "The post with the specified ID does not exist."})
             }
         })
 })
+
+
 module.exports = router;
